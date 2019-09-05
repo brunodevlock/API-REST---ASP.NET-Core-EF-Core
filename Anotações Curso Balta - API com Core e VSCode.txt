@@ -1,0 +1,1109 @@
+Anotações Curso API Core - Balta
+
+-----------
+
+Iniciar.
+
+Abra o CMD
+
+Crie uma pasta para o projeto -->
+
+mkdir ProductCatalog
+
+Digite -->
+
+dotnet new web
+
+Ele criará um projeto AspNet Empty
+
+Digite -->
+
+dotnet sln 
+
+Ele criará uma solução para inserirmos o projeto
+
+Digite -->
+
+dotnet sln add ProductCatalog.csproj
+
+Ele adicionará o projeto criado na solução criada
+
+
+----> Agora o projeto pode ser usado tanto no VSCODE quanto no VSTUDIO
+
+
+Depois de criar o model de Produto por exemplo, digite no terminal -->
+
+dotnet add package Microsot.EntityFrameworkCore
+
+
+Utilizando a versão 2.1.4 do dotnetcore SDK
+
+--> Problema com o NuGet instalar forcado -->
+Install-PackageProvider -Name NuGet -RequiredVersion 2.8.5.208 -Force
+
+Execute esse comando no PowerShell
+
+
+Models
+
+---------------------
+
+Classe Category
+
+//using System;
+using System.Collections.Generic;
+
+namespace ProductCatalog.Models{
+
+    public class Category{
+
+        public int Id {get; set;}
+
+        public string Title{get; set;}
+
+        public IEnumerable<Product> Products{get; set;}
+        
+
+    }
+}
+
+
+Classe Product
+
+
+using System;
+using ProductCatalog.Models;
+
+public class Product{
+
+public int Id { get; set; }
+public string Title { get; set; }
+public string Description { get; set; }
+public decimal Price { get; set; }
+public int Quantity { get; set; }
+public string image { get; set; }
+public DateTime CreateDate{ get; set; }
+public DateTime LastUpdateDate{ get; set; }
+public int CategoryId { get; set; }
+public Category Category { get; set; }
+
+}
+
+
+----
+
+Agora vamos criar a classe que cuidará do contexto do nosso banco de dados,
+é a classe:
+
+-->
+
+StoreDataContext : DbContext
+
+código:
+
+using Microsoft.EntityFrameworkCore;
+using ProductCatalog.Models;
+
+
+namespace ProductCatalog.Data{
+
+    public class StoreDataContext : DbContext {
+
+        public DbSet<Product> Products {get; set;}
+
+        public DbSet<Category> Categories{get; set;}
+
+         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
+           optionsBuilder.UseSqlServer(@"Server=localhost\SQLEXPRESS;Database=CursoBalta;User ID=SA;Password=1q2w3e$$@;Trusted_Connection=True");
+        }
+    }
+
+}
+
+
+
+
+--------------------------------------
+
+
+
+Arrumar o ProductCatalog.csproj com as versões compatíveis, não ficar instalando um monte de pacotes...
+
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+
+  
+  <ItemGroup>
+    
+    <PackageReference Include="Microsoft.EntityFrameWorkCore" Version="2.1.4" />
+    
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <DotNetCliToolReference Include="Microsoft.EntityFrameWorkCore.Tools.Dotnet" Version="2.0.1" />
+  </ItemGroup>
+
+
+</Project>
+
+
+
+
+_--------------------------
+
+Fazendo as Migrações para o Banco de Dados SQL Server criado.
+
+
+Execute o comando-->
+dotnet ef migrations add install 
+
+Ele criar a pasta migration com todos os arquivos C# necessários.
+
+
+Agora execute o comando-->
+dotnet ef database update 
+
+Verifique o nome da instância do SQL Server na string de conexão no arquivo
+[StoreDataContext]
+
+
+
+O Banco de nome CursoBalta foi criado, porém para arrumar os nomes das tabelas 
+e ficar como padrão vamos criar o arquivo cs -->
+
+CategoryMap dentro de uma pasta Map dentro de Data.
+
+Data --> Maps --> CategoryMap
+
+
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ProductCatalog.Models;
+
+namespace ProductCatalog.Data.Maps{
+
+    public class CategoryMap: IEntityTypeConfiguration<Category> {
+
+        public void Configure(EntityTypeBuilder<Category> builder{
+
+            builder.ToTable("Category");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.Title).IsRequired().HasMaxLength(120).HasColumnType("varchar(120)");
+
+            
+        }
+
+    }
+}
+
+
+
+
+-------------------------------
+
+Criar na mesma pasta Map o arquivo ProductMap
+
+
+
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ProductCatalog.Models;
+
+
+namespace ProductCatalog.Data.Maps{
+
+
+        public class ProductMap : IEntityTypeConfiguration<Product>{
+
+            public void Configure(EntityTypeBuilder<Product> builder){
+
+            builder.ToTable("Product");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.CreateDate).IsRequired();
+            builder.Property(x => x.Description).IsRequired().HasMaxLength(1024).HasColumnType("varchar(1024)");
+            builder.Property(x => x.Image).IsRequired().HasMaxLength(1024).HasColumnType("varchar(1024)");
+            builder.Property(x => x.LastUpdateDate).IsRequired();
+            builder.Property(x => x.Price).IsRequired().HasColumnType("money");
+            builder.Property(x => x.Quantity).IsRequired();
+            builder.Property(x => x.Title).IsRequired().HasMaxLength(120).HasColumnType("Titulo");
+            builder.HasOne(x => x.Category).WithMany(x => x.Products);
+
+            }
+
+        }
+
+
+}
+
+
+-----------------------
+
+Atualize o código do StoreDataContext para o código a seguir -->
+
+
+
+
+using Microsoft.EntityFrameworkCore;
+using ProductCatalog.Models;
+using ProductCatalog.Data.Maps; 
+
+
+namespace ProductCatalog.Data{
+
+    public class StoreDataContext : DbContext {
+
+        public DbSet<Product> Products {get; set;}
+
+        public DbSet<Category> Categories{get; set;}
+
+         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
+           optionsBuilder.UseSqlServer(@"Server=localhost\SQLSERVEREXPRESS;Database=CursoBalta;User ID=SA;Password=1q2w3e$$@;Trusted_Connection=True");
+        }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            builder.ApplyConfiguration(new ProductMap());
+            builder.ApplyConfiguration(new CategoryMap());
+
+           
+        }
+
+    }
+
+}
+
+
+
+Em seguida crie uma migração nova -->
+
+dotnet ef migrations add v1 
+
+e depois ... -->
+
+dotnet ef database update
+
+
+
+Confirme se a migração foi feita com sucesso.
+
+Se houver algum erro somente apague as migrações anteriores + o arquivo:
+
+StoreDataContextModelSnapshot.cs
+
+E faça tudo denovo.
+
+------------------
+
+Execute o comando:
+
+--> dotnet build
+
+depois:
+
+
+Adicione o AspNetCoreMvc
+
+--> dotnet add package Microsoft.AspNetCore.Mvc
+
+--> dotnet restore
+
+
+
+A classe StartUp deverá ficar da seguinte forma:
+
+
+
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace ProductCatalog
+{
+    public class Startup
+    {
+        //Aqui se adiciona o MiddleWere - Validações e services entre o Request/Response
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddMvc();
+        }
+
+        
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        {
+            if (env.IsDevelopment())
+                app.UseDeveloperExceptionPage();
+
+                app.UseMvc();
+        }   
+    }
+}
+
+
+
+---------------
+
+
+Verbos
+
+Get - Leitura
+Post - Escrita
+Put - Atualização
+Delete - Exclusão
+
+
+Criar o CategoryController para colocar os verbos da API:
+
+
+
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ProductCatalog.Data;
+using ProductCatalog.Models;
+
+
+namespace ProductCatalog.Controllers{
+
+
+    public class CategoryController : Controller {
+
+        private readonly StoreDataContext _context;
+
+
+        //Construtor da classe gerando dependencia
+        public CategoryController(StoreDataContext context){
+
+            _context = context;
+        }
+
+
+
+            //////////// MÉTODOS DE READ - LEITURA - GET //////////////////////
+            //////////////////////////////////////////////////////////////////
+
+
+
+
+        [Route("v1/categories")]
+        [HttpGet]
+
+        //Retorna uma Lista de Categorias com IEnumerable
+        // Sempre que joga dados direto na tela usar o AsNoTracking pra não trazer muitos dados 
+        // desnecessários.
+        public IEnumerable<Category> Get(){
+
+            return _context.Categories.AsNoTracking().ToList();
+
+        }
+
+
+        [Route("v1/categories/{id}")]
+        [HttpGet]
+
+        public Category Get(int id){
+
+            return _context.Categories.AsNoTracking().Where(x => x.Id == id).FirstOrDefault();
+
+        }
+
+        [Route("v1/categories/{id}/products")]
+        [HttpGet]
+
+        //Obtendo os produtos desta categoria 
+        public IEnumerable<Product> GetProducts(int id){
+
+            return _context.Products.AsNoTracking().Where(x => x.CategoryId == id).ToList();
+        }
+
+
+            //////////// MÉTODOS DE ESCRITA - POST //////////////////////
+            /////////////////////////////////////////////////////////////
+
+
+
+
+        [Route("v1/categories")]
+        [HttpPost]
+
+        public Category Post([FromBody]Category category){
+
+            _context.Categories.Add(category);
+            _context.SaveChanges();
+
+            return category;
+
+        }
+
+
+            // EXECUTA A ATUALIZAÇÃO NO BANCO /////
+            // PUT ////
+
+        [Route("v1/categories")]
+        [HttpPut]
+
+        public Category Put([FromBody]Category category) {
+
+            _context.Entry<Category>(category).State = EntityState.Modified;
+            _context.SaveChanges();
+
+            return category;
+
+        }
+
+
+        // REMOVER DO BANCO ///
+        // DELETE ///
+
+        [Route("v1/categories")]
+        [HttpDelete]
+
+
+        public Category Delete([FromBody]Category category){
+
+            _context.Categories.Remove(category);
+            _context.SaveChanges();
+
+            return category;
+
+        }
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+--------------------------------
+
+
+
+ViewModels
+
+São objetos de Entrada / Saída 
+São objetos de transporte
+
+É quando a informação que vc quer jogar pra tela é diferente do seu modelo,
+ou a informação que vc quer que venha da tela seja diferente do seu modelo...
+
+Ex: confirmação de senha do usuário
+
+
+------
+
+Criar o ProductController -->
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ProductCatalog.Data;
+using ProductCatalog.Models;
+using ProductCatalog.ViewModels.ProductViewModels;
+
+
+namespace ProductCatalog.Controllers{
+
+    public class ProductController : Controller {
+
+        private readonly StoreDataContext _context;
+
+        public ProductController(StoreDataContext context){
+
+            _context = context;
+        }
+
+
+        //////// GET /////////
+
+        [Route("v1/products")]
+        [HttpGet]
+
+        public IEnumerable<ListProductViewModel> Get(){
+
+            return _context.Products
+                .Include(x => x.Category) //incluir a categoria listando 
+                .Select(x => new ListProductViewModel
+                {
+                    Id = x.Id,
+                    Title = x.Title,
+                    Price = x.Price,
+                    Category = x.Category.Title,
+                    CategoryId = x.CategoryId
+                })
+                .AsNoTracking()
+                .ToList(); 
+        }
+
+
+        [Route("v1/products")]
+        [HttpPost]
+
+        public ResultViewModel Post([FromBody]EditorProductViewModel model){
+
+            model.Validate();
+
+            if (model.Invalid) 
+                return new ResultViewModel
+            {
+                Success = false,
+                Message = "Não foi possível cadastrar o produto",
+                Data = model.Notifications
+            };
+
+            var product = new Product();
+            product.Title = model.Title;
+            product.CategoryId = model.CategoryId;
+            product.CreateDate = DateTime.Now;  //Nunca recebe essa informação da tela
+            product.Description = model.Description;
+            product.Image = model.Image;
+            product.LastUpdateDate = DateTime.Now; //Nunca recebe essa informação da tela
+            product.Price = model.Price;
+            product.Quantity = model.Quantity;
+
+            _context.Products.Add(product);
+            _context.SaveChanges();
+
+            //Se der tudo certo retorna esse ResultViewModel
+            return new ResultViewModel {
+
+                Success = true,
+                Message = "Produto cadastrado com sucesso",
+                Data = product
+            };
+
+
+        }
+
+        [Route("v1/products")]
+        [HttpPut]
+
+        public ResultViewModel Put([FromBody]EditorProductViewModel model){
+
+            model.Validate();
+            if(model.Invalid)
+                return new ResultViewModel
+                {
+                    Success = false,
+                    Message = "Não foi possível alterar o produto",
+                    Data = model.Notifications
+                };
+
+            var product = _context.Products.Find(model.Id);  // Aqui usa o Find, não usa o new
+            product.Title = model.Title;
+            product.CategoryId = model.CategoryId;
+            //product.CreateDate = DateTime.Now;  //Nunca recebe essa informação da tela
+            product.Description = model.Description;
+            product.Image = model.Image;
+            product.LastUpdateDate = DateTime.Now; //Nunca recebe essa informação da tela
+            product.Price = model.Price;
+            product.Quantity = model.Quantity;
+
+            _context.Entry<Product>(product).State = EntityState.Modified;
+            _context.SaveChanges();
+
+
+            return new ResultViewModel
+            {
+                Success = true,
+                Message = "Produto alterado com sucesso!",
+                Data = product
+
+            };
+
+
+        }
+    
+
+    }
+
+
+
+}
+
+
+
+
+
+
+------------------------
+
+
+Fail Fast Validations
+
+
+- Validar e falhar o mais rápido possível
+- Valida as ViewModels de entrada 
+- Armazena todos os "erros"
+- Retorna falha antes de prosseguir
+- Evita requests desnecessários ao banco e afins
+
+
+
+Flunt (criado pelo balta)
+
+- Pacote para criar validações 
+- Validação através de contratos
+- Diversas opções de validação
+- Open Source
+
+
+--------
+
+Criar o ResultViewModel
+
+
+
+namespace ProductCatalog.ViewModels.ProductViewModels{
+
+    public class ResultViewModel{
+
+        public bool Success {get; set;}
+
+        public string Message {get; set;}
+
+        public object Data {get; set;}
+
+    }
+
+
+
+}
+
+
+
+---------------
+
+
+Criar o ListProductViewModel -->
+
+
+
+namespace ProductCatalog.ViewModels.ProductViewModels{
+
+    public class ListProductViewModel{
+
+        public int Id {get; set;}
+
+        public string Title{get; set;}
+
+        public decimal Price{get; set;}
+
+        public int CategoryId{get; set;}
+
+        public string Category{get; set;}
+
+        
+    }
+
+
+
+}
+
+
+
+--------------------
+
+
+O EditorProductViewModel deverá ficar assim -->
+
+
+using Flunt.Notifications;
+using Flunt.Validations;
+
+
+namespace ProductCatalog.ViewModels.ProductViewModels{
+
+
+    public class EditorProductViewModel : Notifiable, IValidatable{
+
+    public int Id { get; set; }
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public decimal Price { get; set; }
+    public int Quantity { get; set; }
+    public string Image { get; set; }
+    public int CategoryId { get; set; }
+
+
+    public void Validate(){
+        
+        
+        AddNotifications(
+            new Contract()
+            .HasMaxLen(Title, 120, "Title", "O título deve conter até 120 caracteres")
+            .HasMinLen(Title, 3, "Title", "O título deve conter pelo menos 3 caracteres")
+            .IsGreaterThan(Price, 0, "Price", "O preço dever ser maior que zero")
+        );
+    }
+
+    }
+
+
+}
+
+
+-----------------
+
+
+Repository Patterns 
+
+
+
+- Design Pattern
+- Cada Entidade tem seu repositório
+-Abstrai o acesso a dados
+- Permite a troca da fonte de dados sem afetar o resto do sistema
+- Usado em qualquer tamanho de projeto
+
+
+
+Criar o ProductRepository
+
+
+using ProductCatalog.Data;
+using System.Collections.Generic;
+using ProductCatalog.Models;
+using ProductCatalog.ViewModels.ProductViewModels;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
+
+namespace ProductCatalog.Repositories{
+
+    public class ProductRepository{
+
+        private readonly StoreDataContext _context;
+
+        public ProductRepository(StoreDataContext context){
+
+            _context = context;
+        }
+
+        public IEnumerable<ListProductViewModel> Get()
+        {
+            return _context.Products
+                .Include(x => x.Category) //incluir a categoria listando 
+                .Select(x => new ListProductViewModel
+                {
+                    Id = x.Id,
+                    Title = x.Title,
+                    Price = x.Price,
+                    Category = x.Category.Title,
+                    CategoryId = x.CategoryId
+                })
+                .AsNoTracking()
+                .ToList(); 
+        }
+
+        public Product Get(int id){
+
+            return _context.Products.Find(id);
+        }
+
+        public void Save(Product product){
+
+            _context.Products.Add(product);
+            _context.SaveChanges();
+
+        }
+
+        public void Update(Product product) {
+
+
+            _context.Entry<Product>(product).State = EntityState.Modified;
+            _context.SaveChanges();
+
+
+        }
+
+
+        
+    }
+
+}
+
+
+
+
+
+-----------------
+
+
+
+Queries
+
+- LINQ
+- Retornam um ViewModel
+- Podemos mapear Views (Perigoso, cuidado)
+- Podemos mapear Procedures 
+- Podemos executar queries SQL
+- Utilizar sempre AsNoTracking
+
+
+Dica importante --> Se for precisar de todos os atributos de um objeto, exemplo Produto, aí chama o
+objeto inteiro, porém se for precisar apenas de 3 atributos por exemplo, cria uma ViewModel 
+com os atributos e chama a ViewModel.
+
+
+
+Versionameto 
+
+- impotante para quando realiaar modificações na API
+- Colocar sempre na rota "v1/produtos" e criar "v2/produtos" por exemplo 
+deixando os dois trechos de código ativos para que os dois possam ser chamados sempre
+que necessitar.
+- depois da descontinuação da versão antiga, se atualiza retirando o trecho de código.
+
+
+
+Cache
+
+- Auxilia quando a Aplicação tem muitas requisições por dia 
+- Melhores serem usados em locais que não mudam muito os dados 
+- Alivia o servidor, desafoga. Principalmente o banco de dados.
+
+Ex:
+
+	[HttpGet]
+	[Route("v1/customers")]
+	[ResponseCache(Duration = 60)] //Pega a requisição e adiciona um cache control nela
+de 60 minutos
+
+
+	public IEnumerable<ListCustomerQueryResult> Get(){
+	
+		return _repository.Get();
+	}
+
+
+
+
+Compressão
+
+
+- Requests comprimidos
+- Toda vez que o usuario faz uma requisição eu zipo e envio pra ele
+
+
+
+1. Baixar o pacote -->
+
+dotnet add package Microsoft.AspNetCore.ResponseCompression --version 2.0.1 / ou 2.1.1
+
+
+
+A classe StartUp.cs fica da seguinte forma -->
+
+
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using ProductCatalog.Data;
+using ProductCatalog.Repositories;
+
+namespace ProductCatalog
+{
+    public class Startup
+    {
+        //Aqui se adiciona o MiddleWere - Validações e services entre o Request/Response
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddMvc();
+
+            //Comprime todas as requisições para depois enviar para qualquer lugar 
+            services.AddResponseCompression(); 
+
+            // Cria um item apenas 
+            // AddScoped verifica se existe algum Datacontext na memória e se não existir 
+            // ele me dá um novo!
+            services.AddScoped<StoreDataContext, StoreDataContext>();
+
+            // É add transiente pq toda vez que eu pedir um ProductRepository eu quero uma nova instância 
+            // do ProductRepository
+            services.AddTransient<ProductRepository, ProductRepository>();
+        }
+
+        
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        {
+            if (env.IsDevelopment())
+                app.UseDeveloperExceptionPage();
+
+                app.UseMvc();
+
+                app.UseResponseCompression();
+        }   
+    }
+}
+
+
+
+
+
+-----------------
+
+
+
+Documentação da API usando Swagger
+
+
+Adicionar o Middleware Swagger no Startup.cs -->
+
+Ficando assim:
+
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using ProductCatalog.Data;
+using ProductCatalog.Repositories;
+using Swashbuckle.AspNetCore.Swagger;
+
+namespace ProductCatalog
+{
+    public class Startup
+    {
+        //Aqui se adiciona o MiddleWere - Validações e services entre o Request/Response
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddMvc();
+
+            //Comprime todas as requisições para depois enviar para qualquer lugar 
+            services.AddResponseCompression(); 
+
+            // Cria um item apenas 
+            // AddScoped verifica se existe algum Datacontext na memória e se não existir 
+            // ele me dá um novo!
+            services.AddScoped<StoreDataContext, StoreDataContext>();
+
+            // É add transient pq toda vez que eu pedir um ProductRepository eu quero uma nova instância 
+            // do ProductRepository
+            services.AddTransient<ProductRepository, ProductRepository>();
+
+            //Adiciona o Swagger para documentação da API
+            services.AddSwaggerGen(x => {
+                x.SwaggerDoc("v1", new Info {Title = "ProductCatalog", Version = "v1"});
+            });
+        }
+
+        
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        {
+            if (env.IsDevelopment())
+                app.UseDeveloperExceptionPage();
+
+                app.UseMvc();
+
+                app.UseResponseCompression();
+
+                app.UseSwagger();
+
+                app.UseSwaggerUI(c => {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ProductCatalog - V1");
+                });
+        }   
+    }
+}
+
+
+
+--> Testar faça:
+
+dotnet build
+
+--> Depois:
+
+dotnet run
+
+
+Abra o browser e coloque o caminho -->
+
+localhost:5000/swagger/v1/swagger.json
+
+Depois -->
+
+localhost:5000/swagger/
+
+
+A tela do Swagger abrirá com a documentação da API completa!
+
+
+
+-----------------------------------
+
+
+Deploy da Aplicação e da base do SQL Server
+
+
+--> Ver vídeo do Balta fazendo o Deploy no AZURE 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
